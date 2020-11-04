@@ -33,10 +33,14 @@ $ResetButton = $window.FindName("ResetButton")
 ### Work with Form Elements to Perform Operations 
 
 #Populate the Domain Selection List
+$DomainSelect.AddChild("Domain One")
+$DomainSelect.AddChild("Domain Two")
 
 # Proceed to reset password since user has clicked the button
 $ResetButton.Add_Click({
-    
+  Write-Host $DomainSelect.Text
+  Write-Host $UserText.Text 
+  Write-Host $PasswordText.Password
 })
 
 ### Present the form to the user now 
