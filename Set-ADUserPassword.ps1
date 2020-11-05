@@ -1,10 +1,32 @@
 ### Load Required Modules/Assemblies 
+
+# Required for System.Xml.XmlNodeReader
 Add-Type -AssemblyName PresentationFramework
 
+# .Net methods for hiding/showing the console in the background
+Add-Type -Name Window -Namespace Console -MemberDefinition '
+[DllImport("Kernel32.dll")]
+public static extern IntPtr GetConsoleWindow();
+
+[DllImport("user32.dll")]
+public static extern bool ShowWindow(IntPtr hWnd, Int32 nCmdShow);
+'
+
+### Function Definitions 
+function Close-Console
+{
+    $console = [Console.Window]::GetConsoleWindow()
+    #0 hide
+    [Console.Window]::ShowWindow($console, 0)
+}
+
+### Let's hide the console now and start building our form 
+Close-Console
+
 ### Structure and Build our Form Our Form 
-[xml]$xaml = @"
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" Width="375" Height="225" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,47,0,0">
-  <Grid Margin="0,0,0,0">
+[xml]$mainFormXaml = @"
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" Width="375" Height="225" HorizontalAlignment="Left" VerticalAlignment="Top">
+  <Grid>
     <Label HorizontalAlignment="Left" VerticalAlignment="Top" Content="Domain" Margin="15,18,0,0" Name="DomainLabel"></Label>
     <Label HorizontalAlignment="Left" VerticalAlignment="Top" Content="User Name" Margin="11,52,0,0" Name="UserNameLabel"></Label>
     <Label HorizontalAlignment="Left" VerticalAlignment="Top" Content="Password" Margin="16,90,0,0" Name="PasswordLabel"></Label>
@@ -16,32 +38,60 @@ Add-Type -AssemblyName PresentationFramework
 </Window>
 "@
 
+[xml]$confirmFormXaml = @"
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" Width="250" Height="250">
+  <Grid Margin="-3,0,3,0">
+    <TextBlock HorizontalAlignment="Left" VerticalAlignment="Top" TextWrapping="Wrap" Text="TextBlock" Margin="37,25,0,0" Background="#e4e4e7" Width="178" Height="113" Name="ConfirmText"></TextBlock>
+    <Button Content="OK" HorizontalAlignment="Left" VerticalAlignment="Top" Width="75" Margin="92,154,0,0" Name="ConfirmButton"></Button>
+  </Grid>
+</Window>
+"@
+
 try {
-    $reader = (New-Object System.Xml.XmlNodeReader $xaml)
-    $window = [Windows.Markup.XamlReader]::Load($reader)
+    $xmlMainReader = (New-Object System.Xml.XmlNodeReader $mainFormXaml)
+    $mainForm = [Windows.Markup.XamlReader]::Load($xmlMainReader)
+    $xmlConfirmReader = (New-Object System.Xml.XmlNodeReader $confirmFormXaml)
+    $confirmForm = [Windows.Markup.XamlReader]::Load($xmlConfirmReader)
 }
 catch {
     throw "Unable to load form from provided XAML data."
 }
 
 ### Build our Controls from the Form Created 
-$DomainSelect = $window.FindName("DomainSelect")
-$UserText = $window.FindName("UserText")
-$PasswordText = $window.FindName("PasswordText")
-$ResetButton = $window.FindName("ResetButton")
+
+# Main Form Controls 
+$domainSelect = $mainForm.FindName("DomainSelect")
+$userText = $mainForm.FindName("UserText")
+$passwordText = $mainForm.FindName("PasswordText")
+$resetButton = $mainForm.FindName("ResetButton")
+
+# Confirm Form Controls 
+$confirmText = $confirmForm.FindName("ConfirmText")
+$confirmButton = $confirmForm.FindName("ConfirmButton")
 
 ### Work with Form Elements to Perform Operations 
 
 #Populate the Domain Selection List
-$DomainSelect.AddChild("Domain One")
-$DomainSelect.AddChild("Domain Two")
+$domainSelect.AddChild("Domain One")
+$domainSelect.AddChild("Domain Two")
 
 # Proceed to reset password since user has clicked the button
-$ResetButton.Add_Click({
-  Write-Host $DomainSelect.Text
-  Write-Host $UserText.Text 
-  Write-Host $PasswordText.Password
+$resetButton.Add_Click({
+    Write-Host $domainSelect.Text
+    Write-Host $userText.Text 
+    Write-Host $passwordText.Password
+
+    $confirmText.Text = @"
+Some random text that I'm going to just type a lot of stuff into the box to see how it renders. I will just type a bit more random shit. 
+"@
+    # Operations complete display success/failure to the user
+    $confirmForm.Show()
+})
+
+### Build control form operations for confirm form 
+$confirmButton.Add_Click({
+  $confirmForm.Visibility = "Hidden"
 })
 
 ### Present the form to the user now 
-$window.ShowDialog()
+$mainForm.ShowDialog()
