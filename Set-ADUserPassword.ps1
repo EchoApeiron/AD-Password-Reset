@@ -11,6 +11,8 @@ public static extern IntPtr GetConsoleWindow();
 [DllImport("user32.dll")]
 public static extern bool ShowWindow(IntPtr hWnd, Int32 nCmdShow);
 '
+# We are assuming you may run this from an off domain computer... don't ask 
+Import-Module ActiveDirectory -WarningAction SilentlyContinue
 
 ### Function Definitions 
 function Close-Console
@@ -20,32 +22,9 @@ function Close-Console
     [Console.Window]::ShowWindow($console, 0)
 }
 
-### Let's hide the console now and start building our form 
-Close-Console
-
 ### Structure and Build our Form Our Form 
-[xml]$mainFormXaml = @"
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" Width="375" Height="225" HorizontalAlignment="Left" VerticalAlignment="Top">
-  <Grid>
-    <Label HorizontalAlignment="Left" VerticalAlignment="Top" Content="Domain" Margin="15,18,0,0" Name="DomainLabel"></Label>
-    <Label HorizontalAlignment="Left" VerticalAlignment="Top" Content="User Name" Margin="11,52,0,0" Name="UserNameLabel"></Label>
-    <Label HorizontalAlignment="Left" VerticalAlignment="Top" Content="Password" Margin="16,90,0,0" Name="PasswordLabel"></Label>
-    <ComboBox HorizontalAlignment="Left" VerticalAlignment="Top" Width="250" Margin="82,20,0,0" Name="DomainSelect"></ComboBox>
-    <TextBox HorizontalAlignment="Left" VerticalAlignment="Top" Height="29" Width="250" TextWrapping="Wrap" Margin="82,52,0,0" FontSize="14" Text="aUserName" Name="UserText"></TextBox>
-    <PasswordBox HorizontalAlignment="Left" VerticalAlignment="Top" Height="23" Width="250" Margin="82,90,0,0" Name="PasswordText"></PasswordBox>
-    <Button Content="Reset" HorizontalAlignment="Left" VerticalAlignment="Top" Width="75" Margin="145,146,0,0" Name="ResetButton"></Button>
-  </Grid>
-</Window>
-"@
-
-[xml]$confirmFormXaml = @"
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" Width="250" Height="250">
-  <Grid Margin="-3,0,3,0">
-    <TextBlock HorizontalAlignment="Left" VerticalAlignment="Top" TextWrapping="Wrap" Text="TextBlock" Margin="37,25,0,0" Background="#e4e4e7" Width="178" Height="113" Name="ConfirmText"></TextBlock>
-    <Button Content="OK" HorizontalAlignment="Left" VerticalAlignment="Top" Width="75" Margin="92,154,0,0" Name="ConfirmButton"></Button>
-  </Grid>
-</Window>
-"@
+[xml]$mainFormXaml = Get-Content .\main_form.xaml
+[xml]$confirmFormXaml = Get-Content .\confirm_form.xaml
 
 try {
     $xmlMainReader = (New-Object System.Xml.XmlNodeReader $mainFormXaml)
@@ -53,12 +32,17 @@ try {
     $xmlConfirmReader = (New-Object System.Xml.XmlNodeReader $confirmFormXaml)
     $confirmForm = [Windows.Markup.XamlReader]::Load($xmlConfirmReader)
 }
+catch [System.Management.Automation.RuntimeException] {
+  throw "Assembly wasn't loaded properly."
+}
 catch {
     throw "Unable to load form from provided XAML data."
 }
 
-### Build our Controls from the Form Created 
+# Now that our forms are loaded properly we can close the console. 
+Close-Console
 
+### Build our Controls from the Form Created 
 # Main Form Controls 
 $domainSelect = $mainForm.FindName("DomainSelect")
 $userText = $mainForm.FindName("UserText")
@@ -69,28 +53,48 @@ $resetButton = $mainForm.FindName("ResetButton")
 $confirmText = $confirmForm.FindName("ConfirmText")
 $confirmButton = $confirmForm.FindName("ConfirmButton")
 
-### Work with Form Elements to Perform Operations 
-
-#Populate the Domain Selection List
-$domainSelect.AddChild("Domain One")
-$domainSelect.AddChild("Domain Two")
-
-# Proceed to reset password since user has clicked the button
-$resetButton.Add_Click({
-    Write-Host $domainSelect.Text
-    Write-Host $userText.Text 
-    Write-Host $passwordText.Password
-
-    $confirmText.Text = @"
-Some random text that I'm going to just type a lot of stuff into the box to see how it renders. I will just type a bit more random shit. 
-"@
-    # Operations complete display success/failure to the user
-    $confirmForm.Show()
-})
-
 ### Build control form operations for confirm form 
 $confirmButton.Add_Click({
   $confirmForm.Visibility = "Hidden"
+})
+
+### Work with Form Elements to Perform Operations 
+
+#Populate the Domain Selection List
+$domainSelect.AddChild("digiecho.xyz")
+
+# Proceed to reset password since user has clicked the button
+$resetButton.Add_Click({
+    try {
+      Set-ADAccountPassword -Identity $userText.Text -NewPassword $(ConvertTo-SecureString -String $passwordText -AsPlainText -Force) -Server $domainSelect.SelectedItem.ToString()
+    }
+    catch [System.Security.Authentication.AuthenticationException] {
+      $confirmText.Text = @"
+You do not  have the proper credentials to perform AD password resets. 
+
+Please consult the administrator or switch to an account that does have proper credentials.
+"@
+    }
+    catch {
+      $confirmText.Text = @"
+Some unknown error has occured.
+
+Please consult your administrator in regards to this error.
+"@
+    }
+    
+    if (!($Error)) {
+      $confirmText.Text = @"
+        Password has been successfully updated for user $($userText.Text).
+        
+        Please notify user of the updated password through a secure means. 
+"@
+    }
+
+
+
+    # Operations complete display success/failure to the user
+    $confirmForm.Show()
 })
 
 ### Present the form to the user now 
