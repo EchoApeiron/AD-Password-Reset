@@ -73,36 +73,34 @@ catch {
 
 # Proceed to reset password since user has clicked the button
 $resetButton.Add_Click({
-    try {
-      Set-ADAccountPassword -Identity $userText.Text -NewPassword $(ConvertTo-SecureString -String $passwordText -AsPlainText -Force) -Server $domainSelect.SelectedItem.ToString()
-    }
-    catch [System.Security.Authentication.AuthenticationException] {
-      $confirmText.Text = @"
+  try {
+    Set-ADAccountPassword -Identity $userText.Text -NewPassword $(ConvertTo-SecureString -String $passwordText.Password -AsPlainText -Force) -Server $domainSelect.SelectedItem.ToString()
+  }
+  catch [System.Security.Authentication.AuthenticationException] {
+    $confirmText.Text = @"
 You do not  have the proper credentials to perform AD password resets. 
 
 Please consult the administrator or switch to an account that does have proper credentials.
 "@
-    }
-    catch {
-      $confirmText.Text = @"
+  }
+  catch {
+    $confirmText.Text = @"
 Some unknown error has occured.
 
 Please consult your administrator in regards to this error.
 "@
-    }
-    
-    if (!($Error)) {
-      $confirmText.Text = @"
+  }
+  
+  if (!($Error)) {
+    $confirmText.Text = @"
 Password has been successfully updated for user $($userText.Text).
 
 Please notify user of the updated password through a secure means. 
 "@
-    }
+  }
 
-
-
-    # Operations complete display success/failure to the user
-    $confirmForm.Show()
+  # Operations complete display success/failure to the user
+  $confirmForm.Show()
 })
 
 ### Present the form to the user now 
