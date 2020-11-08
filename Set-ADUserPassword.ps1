@@ -61,7 +61,15 @@ $confirmButton.Add_Click({
 ### Work with Form Elements to Perform Operations 
 
 #Populate the Domain Selection List
-$domainSelect.AddChild("digiecho.xyz")
+try {
+  foreach ($d in $(Get-ADDomain)) {
+    $domainSelect.AddChild($d.DNSRoot.ToString())
+  }
+}
+catch {
+  $domainSelect.AddChild("No Domains Available")
+}
+
 
 # Proceed to reset password since user has clicked the button
 $resetButton.Add_Click({
@@ -85,9 +93,9 @@ Please consult your administrator in regards to this error.
     
     if (!($Error)) {
       $confirmText.Text = @"
-        Password has been successfully updated for user $($userText.Text).
-        
-        Please notify user of the updated password through a secure means. 
+Password has been successfully updated for user $($userText.Text).
+
+Please notify user of the updated password through a secure means. 
 "@
     }
 
